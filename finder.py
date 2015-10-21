@@ -10,7 +10,7 @@ def get_company_names():
 	result = []
 	for row in ws.iter_rows(row_offset=1):
 		if row[1].value:
-			company = unicode(row[1].value).strip()
+			company = row[1].value.strip()
 			result.append(company)
 	return result
 		
@@ -31,7 +31,7 @@ def hash_event_years():
 	company_list = get_company_names()
 	year_dict = hash_year_values()
 	for row in ws.iter_rows(row_offset=1):
-		company_name = unicode(row[0].value).strip()
+		company_name = row[0].value.strip()
 		if company_name in company_list:	 
 			for cell in row:
 				if cell.column in year_dict and cell.value:
@@ -68,12 +68,12 @@ def write_event_years():
 	# print "Saved new workbook with eventyears"
 	
 # companies_sheet1 = get_company_names()
-# companies_sheet2 = get_event_year()
+# companies_sheet2 = hash_event_years()
 # for i in companies_sheet1:
 	# if i not in companies_sheet2:
 		# print i 
 # print len(get_company_names())						
 #print get_event_year()		
 #print hash_year_columns()
-#write_event_years()
+write_event_years()
 #create_new_xl()		
