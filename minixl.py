@@ -1,13 +1,14 @@
-import os
 from openpyxl import load_workbook
 from openpyxl import Workbook
+from openpyxl.utils import column_index_from_string
 
-doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
+doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
 #set the range string which contains the range of header data to be used in hash_year_values
 header_cell_range = 'D1:CU1'
 wb = load_workbook(filename=doc,use_iterators=True)
 sheets = wb.get_sheet_names()
-print sheets
+
+
 
 def get_company_names():
 	ws = wb[sheets[0]]
@@ -64,9 +65,49 @@ def write_event_years():
 	print "New values written to spreadsheet"
 	return companies
 
-# def check_pre_event_year():
-
-
+def check_pre_event_year():
+	'''To find the pre-event year, this function checks
+	the 1st event year, minus one, against the values in the
+	Data Date column (first 4 digits). The program will iterate up from
+	the starting row until it finds a match, or it reaches the end of the
+	firms entries. If no match is found, the program will use 
+	the next event year in the hash_event_years dict, to calculate 
+	a new pre-event year, and iterate through the Data Dates again. This process repeats
+	until there is a match, or the event year list is exausted. If the list is exausted,
+	the firm name is appended to a dict (no_pre_event year).
+	Once it finds a match, the program checks that same row,column=Net Income(loss)
+	for a value. If there is no value, append the firm name to a dict (no_net_income_data) with firm name:pre-event year.
+	'''
+	ws=wb[sheets[0]]
+	event_years = hash_event_years()
+	net_income_col = column_index_from_string('AF')-1
+	print "Net income col:" + str(net_income_col)
+	no_net_income_data = {}
+	no_pre_event_year = []
+	company_checked = []
+	for row in ws.iter_rows(row_offset=1):
+		if row[1].value:
+			firm = unicode(row[1].value).strip()
+			print "Firm:" + firm
+			pre_event_years = [int(x-1) for x in event_years[firm]]
+			print pre_event_years
+		if firm not in company_checked and row[13].value:
+			datecell = row[13].value
+			date = int(str(datecell)[:4])
+			print "Date:" + str(date)
+			net_income = row[net_income_col].value
+			if date in pre_event_years:
+				print "Date in pre-event years"
+				company_checked.append(firm) 
+				if not net_income:
+					print "No net income data found"
+					no_net_income_data[firm] = date
+	for e in event_years:
+		if e not in company_checked:
+			no_pre_event_year.append(e)
+	return "These firms have no net income data for pre-event year\n" + str(no_net_income_data) + "\n" + "No pre-event year found for\n"+ str(no_pre_event_year)
+				
+	
 # def create_new_xl():
 	# nb = Workbook(write_only=True)
 	# ws = nb.create_sheet()
@@ -84,5 +125,6 @@ def write_event_years():
 # print len(get_company_names())
 # print hash_event_years()
 # print hash_year_values()
-write_event_years()
+#write_event_years()
 #create_new_xl()
+print check_pre_event_year()
