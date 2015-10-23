@@ -2,8 +2,8 @@ from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.utils import column_index_from_string
 
-#doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
-doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
+doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
+# doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
 #set the range string which contains the range of header data to be used in hash_year_values
 header_cell_range = 'D1:CU1'
 wb = load_workbook(filename=doc,use_iterators=True)
@@ -89,28 +89,21 @@ def check_pre_event_year():
 	for row in ws.iter_rows(row_offset=1):
 		if row[1].value:
 			firm = unicode(row[1].value).strip()
-			print "Firm:" + firm
 			pre_event_years = [int(x-1) for x in event_years[firm]]
-			print pre_event_years
+			print firm + " has pre-event years:\n {0}\n".format(pre_event_years)
 		if firm not in company_checked and row[13].value:
 			datecell = row[13].value
 			date = int(str(datecell)[:4])
-			print "Date:" + str(date)
 			net_income = row[net_income_col].value
 			if date in pre_event_years:
 				if net_income:
-					print "Pre event year has net income data"
+					print firm + " has net income data for pre-event year {0}\n\n".format(date)
 					company_checked.append(firm)
-				else:
+				elif not net_income and firm not in no_net_income_data:
 					no_net_income_data.append(firm)
-	for c in company_checked:
-		if c in no_net_income_data:
-			no_net_income_data = [x for x in no_net_income_data if x!= c]
-	no_net_income_data = list(set(no_net_income_data))
-	for e in event_years:
-		if e not in company_checked and e not in no_net_income_data:
-			no_pre_event_year.append(e)
-	return "These firms have no net income data for pre-event year\n" + str(no_net_income_data) + "\n" + "No pre-event year found for\n"+ str(no_pre_event_year)
+	no_net_income_data = [x for x in no_net_income_data if x not in company_checked]
+	no_pre_event_year = [e for e in event_years if e not in company_checked and e not in no_net_income_data]
+	return "These firms have no net income data for pre-event year:\n" + str(no_net_income_data) + "\n\n" + "No pre-event year found for:\n"+ str(no_pre_event_year)+ "\n"
 
 
 # def create_new_xl():
