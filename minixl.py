@@ -2,7 +2,8 @@ from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.utils import column_index_from_string
 
-doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
+#doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
+doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
 #set the range string which contains the range of header data to be used in hash_year_values
 header_cell_range = 'D1:CU1'
 wb = load_workbook(filename=doc,use_iterators=True)
@@ -70,8 +71,8 @@ def check_pre_event_year():
 	the 1st event year, minus one, against the values in the
 	Data Date column (first 4 digits). The program will iterate up from
 	the starting row until it finds a match, or it reaches the end of the
-	firms entries. If no match is found, the program will use 
-	the next event year in the hash_event_years dict, to calculate 
+	firms entries. If no match is found, the program will use
+	the next event year in the hash_event_years dict, to calculate
 	a new pre-event year, and iterate through the Data Dates again. This process repeats
 	until there is a match, or the event year list is exausted. If the list is exausted,
 	the firm name is appended to a dict (no_pre_event year).
@@ -82,7 +83,7 @@ def check_pre_event_year():
 	event_years = hash_event_years()
 	net_income_col = column_index_from_string('AF')-1
 	print "Net income col:" + str(net_income_col)
-	no_net_income_data = {}
+	no_net_income_data = []
 	no_pre_event_year = []
 	company_checked = []
 	for row in ws.iter_rows(row_offset=1):
@@ -97,17 +98,21 @@ def check_pre_event_year():
 			print "Date:" + str(date)
 			net_income = row[net_income_col].value
 			if date in pre_event_years:
-				print "Date in pre-event years"
-				company_checked.append(firm) 
-				if not net_income:
-					print "No net income data found"
-					no_net_income_data[firm] = date
+				if net_income:
+					print "Pre event year has net income data"
+					company_checked.append(firm)
+				else:
+					no_net_income_data.append(firm)
+	for c in company_checked:
+		if c in no_net_income_data:
+			no_net_income_data = [x for x in no_net_income_data if x!= c]
+	no_net_income_data = list(set(no_net_income_data))
 	for e in event_years:
-		if e not in company_checked:
+		if e not in company_checked and e not in no_net_income_data:
 			no_pre_event_year.append(e)
 	return "These firms have no net income data for pre-event year\n" + str(no_net_income_data) + "\n" + "No pre-event year found for\n"+ str(no_pre_event_year)
-				
-	
+
+
 # def create_new_xl():
 	# nb = Workbook(write_only=True)
 	# ws = nb.create_sheet()
