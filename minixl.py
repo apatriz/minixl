@@ -103,7 +103,7 @@ def check_pre_event_year():
 					no_net_income_data.append(firm)
 	no_net_income_data = [x for x in no_net_income_data if x not in company_checked]
 	no_pre_event_year = [e for e in event_years if e not in company_checked and e not in no_net_income_data]
-	return "These firms have no net income data for pre-event year:\n" + str(no_net_income_data) + "\n\n" + "No pre-event year found for:\n"+ str(no_pre_event_year)+ "\n"
+	return "Firms with no net income data for pre-event year:\n" + str(no_net_income_data) + "\n\n" + "Firms with no pre-event year data:\n"+ str(no_pre_event_year)+ "\n"
 
 
 # def create_new_xl():
