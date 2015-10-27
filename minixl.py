@@ -1,6 +1,8 @@
 from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.utils import column_index_from_string
+from datetime import datetime
+from os.path import basename
 
 doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
 # doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
@@ -103,9 +105,45 @@ def check_pre_event_year():
 					no_net_income_data.append(firm)
 	no_net_income_data = [x for x in no_net_income_data if x not in company_checked]
 	no_pre_event_year = [e for e in event_years if e not in company_checked and e not in no_net_income_data]
-	return "Firms with no net income data for pre-event year:\n" + str(no_net_income_data) + "\n\n" + "Firms with no pre-event year data:\n"+ str(no_pre_event_year)+ "\n"
+	total_no_data_entries = no_net_income_data + no_pre_event_year
+	print "Firms that have pre-event year data, but no available net income data :\n" + str(no_net_income_data) + "\n\n" + "Firms with no available pre-event year data :\n"+ str(no_pre_event_year)+ "\n"
+	with open("log.txt","w") as logfile:
+		logfile.write("*" * 50 + "\n" + datetime.now().strftime('%H:%M %d/%m/%Y') + "\n\n" + "Log for analysis of: " + basename(doc) + "\n" + "*" * 50 + "\n\n" + "Firms that have pre-event year data, but no available net income data :\n\n")
+		for i in no_net_income_data:
+			logfile.write(i + "\n")
+		logfile.write("\n" + '*' * 50 + "\n" + "Firms with no available pre-event year data :\n\n")
+		for i in no_pre_event_year:
+			logfile.write(i + "\n")
+		logfile.write("\n" + "*" * 50)
+		print "Results written to log.txt\n\n"
+	return total_no_data_entries
+	
+	
+def del_no_data_entries(entries_to_delete):
+	''' (list) -> NoneType
+	Iterates through the rows of spreadsheet and sets
+	all cell values in the row to None if the value in column 2 (firm name)
+	matches any value in entries_to_delete.
+	Blank cells should be manually removed from the excel sheets
+	after running this script. 
+	'''
+	wb = load_workbook(filename=doc)
+	ws=wb[sheets[2]]
+	for row in range(2,ws.max_row):
+		Cell = ws.cell(column=2,row=row)
+		if Cell.value:
+			company = unicode(Cell.value).strip()
+		if company in entries_to_delete:
+			for col in range(2,ws.max_column + 1):
+				cell = ws.cell(column=col,row=row)
+				cell.value = None				
+	wb.save(doc)
+	return "All companies with no data have been removed from spreadsheet"
+		
+		
 
-
+	
+	
 # def create_new_xl():
 	# nb = Workbook(write_only=True)
 	# ws = nb.create_sheet()
@@ -125,4 +163,5 @@ def check_pre_event_year():
 # print hash_year_values()
 #write_event_years()
 #create_new_xl()
-print check_pre_event_year()
+# print check_pre_event_year()
+print del_no_data_entries(check_pre_event_year())
