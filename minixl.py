@@ -168,4 +168,6 @@ def del_no_data_entries(entries_to_delete):
 #write_event_years()
 #create_new_xl()
 # print check_pre_event_year()
-check_pre_event_year()
+
+if __name__ = "__main__":
+	check_pre_event_year()
