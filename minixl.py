@@ -86,8 +86,8 @@ def check_pre_event_year():
 	net_income_col = column_index_from_string('AF')-1
 	print "Net income col:" + str(net_income_col)
 	no_net_income_data = []
-	no_pre_event_year = []
-	company_checked = []
+	no_first_pre_event_year_data = []
+	company_checked = {}
 	for row in ws.iter_rows(row_offset=1):
 		if row[1].value:
 			firm = unicode(row[1].value).strip()
@@ -100,21 +100,25 @@ def check_pre_event_year():
 			if date in pre_event_years:
 				if net_income:
 					print firm + " has net income data for pre-event year {0}\n\n".format(date)
-					company_checked.append(firm)
-				elif not net_income and firm not in no_net_income_data:
+					company_checked[firm] = date
+					if date != min(pre_event_years):
+						no_first_pre_event_year_data.append(firm)
+				elif firm not in no_net_income_data:
 					no_net_income_data.append(firm)
 	no_net_income_data = [x for x in no_net_income_data if x not in company_checked]
 	no_pre_event_year = [e for e in event_years if e not in company_checked and e not in no_net_income_data]
 	total_no_data_entries = no_net_income_data + no_pre_event_year
 	print "Firms that have pre-event year data, but no available net income data :\n" + str(no_net_income_data) + "\n\n" + "Firms with no available pre-event year data :\n"+ str(no_pre_event_year)+ "\n"
 	with open("log.txt","w") as logfile:
-		logfile.write("*" * 50 + "\n" + datetime.now().strftime('%H:%M %d/%m/%Y') + "\n\n" + "Log for analysis of: " + basename(doc) + "\n" + "*" * 50 + "\n\n" + "Firms that have pre-event year data, but no available net income data :\n\n")
-		for i in no_net_income_data:
+		logfile.write("*" * 50 + "\n" + datetime.now().strftime('%H:%M %d/%m/%Y') + "\n\n" + "Log for analysis of: " + basename(doc) + "\n" + "*" * 50 + "\n\n" + str(len(no_net_income_data)) + " Firms that have pre-event year data, but no available net income data :\n\n")
+		for i in sorted(no_net_income_data):
 			logfile.write(i + "\n")
-		logfile.write("\n" + '*' * 50 + "\n" + "Firms with no available pre-event year data :\n\n")
-		for i in no_pre_event_year:
+		logfile.write("\n" + '*' * 50 + "\n" + str(len(no_pre_event_year)) + " Firms with no available pre-event year data :\n\n")
+		for i in sorted(no_pre_event_year):
 			logfile.write(i + "\n")
-		logfile.write("\n" + "*" * 50)
+		logfile.write("\n" + "*" * 50 + "\n" + str(len(no_first_pre_event_year_data)) + " Firms for which net income data was not found for the first pre-event year , but was found for a following pre-event year: \n\n")
+		for i in sorted(no_first_pre_event_year_data):
+			logfile.write(i + "--" + str(company_checked[i]) + "\n")
 		print "Results written to log.txt\n\n"
 	return total_no_data_entries
 	
@@ -164,4 +168,4 @@ def del_no_data_entries(entries_to_delete):
 #write_event_years()
 #create_new_xl()
 # print check_pre_event_year()
-print del_no_data_entries(check_pre_event_year())
+check_pre_event_year()
