@@ -108,6 +108,7 @@ def check_pre_event_year():
 	no_net_income_data = [x for x in no_net_income_data if x not in company_checked]
 	no_pre_event_year = [e for e in event_years if e not in company_checked and e not in no_net_income_data]
 	total_no_data_entries = no_net_income_data + no_pre_event_year
+	changed_event_year = {i:company_checked[i] for i in no_first_pre_event_year_data}
 	print "Firms that have pre-event year data, but no available net income data :\n" + str(no_net_income_data) + "\n\n" + "Firms with no available pre-event year data :\n"+ str(no_pre_event_year)+ "\n"
 	with open("log.txt","w") as logfile:
 		logfile.write("*" * 50 + "\n" + datetime.now().strftime('%H:%M %d/%m/%Y') + "\n\n" + "Log for analysis of: " + basename(doc) + "\n" + "*" * 50 + "\n\n" + str(len(no_net_income_data)) + " Firms that have pre-event year data, but no available net income data :\n\n")
@@ -120,7 +121,7 @@ def check_pre_event_year():
 		for i in sorted(no_first_pre_event_year_data):
 			logfile.write(i + "--" + str(company_checked[i]) + "\n")
 		print "Results written to log.txt\n\n"
-	return total_no_data_entries
+	return changed_event_year
 	
 	
 def del_no_data_entries(entries_to_delete):
@@ -144,7 +145,25 @@ def del_no_data_entries(entries_to_delete):
 	wb.save(doc)
 	return "All companies with no data have been removed from spreadsheet"
 		
-		
+def change_entry(entries_to_change):
+	''' (list) -> NoneType
+	Iterates through the rows of spreadsheet and sets
+	all cell values in the row to None if the value in column 2 (firm name)
+	matches any value in entries_to_delete.
+	Blank cells should be manually removed from the excel sheets
+	after running this script. 
+	'''
+	wb = load_workbook(filename=doc)
+	ws=wb[sheets[2]]
+	for row in range(2,ws.max_row):
+		Cell = ws.cell(column=2,row=row)
+		if Cell.value:
+			company = unicode(Cell.value).strip()
+			if company in entries_to_change:
+				event_year = ws.cell(column=3,row=row)
+				event_year.value = int(entries_to_change[company]) + 1 			
+	wb.save(doc)
+	return "Changed event years"	
 
 	
 	
@@ -169,5 +188,5 @@ def del_no_data_entries(entries_to_delete):
 #create_new_xl()
 # print check_pre_event_year()
 
-if __name__ = "__main__":
-	check_pre_event_year()
+if __name__ == "__main__":
+	change_entry(check_pre_event_year())
