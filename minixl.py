@@ -3,18 +3,24 @@ from openpyxl import Workbook
 from openpyxl.utils import column_index_from_string
 from datetime import datetime
 from os.path import basename
+import itertools
 
-doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
-# doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
+old_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
+doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
+industry_firms = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\2_BigData.xlsx"
 #set the range string which contains the range of header data to be used in hash_year_values
 header_cell_range = 'D1:CU1'
 wb = load_workbook(filename=doc,use_iterators=True)
 sheets = wb.get_sheet_names()
+wb2 = load_workbook(filename=industry_firms,use_iterators=True)
+wb3 = load_workbook(filename=old_doc,use_iterators=True)
+sheets_old = wb3.get_sheet_names()
+
 
 
 
 def get_company_names():
-	ws = wb[sheets[0]]
+	ws = wb[sheets[2]]
 	result = []
 	for row in ws.iter_rows(row_offset=1):
 		if row[1].value:
@@ -25,7 +31,7 @@ def get_company_names():
 
 
 def hash_year_values():
-	ws=wb[sheets[1]]
+	ws=wb3[sheets_old[1]]
 	result = {}
 	for row in ws.iter_rows(range_string = header_cell_range):
 		for cell in row:
@@ -35,7 +41,7 @@ def hash_year_values():
 	return result
 
 def hash_event_years():
-	ws=wb[sheets[1]]
+	ws=wb3[sheets_old[1]]
 	result={}
 	company_list = get_company_names()
 	year_dict = hash_year_values()
@@ -81,7 +87,7 @@ def check_pre_event_year():
 	Once it finds a match, the program checks that same row,column=Net Income(loss)
 	for a value. If there is no value, append the firm name to a dict (no_net_income_data) with firm name:pre-event year.
 	'''
-	ws=wb[sheets[0]]
+	ws=wb[sheets[2]]
 	event_years = hash_event_years()
 	net_income_col = column_index_from_string('AF')-1
 	print "Net income col:" + str(net_income_col)
@@ -122,15 +128,15 @@ def check_pre_event_year():
 			logfile.write(i + "--" + str(company_checked[i]) + "\n")
 		print "Results written to log.txt\n\n"
 	return changed_event_year
-	
-	
+
+
 def del_no_data_entries(entries_to_delete):
 	''' (list) -> NoneType
 	Iterates through the rows of spreadsheet and sets
 	all cell values in the row to None if the value in column 2 (firm name)
 	matches any value in entries_to_delete.
 	Blank cells should be manually removed from the excel sheets
-	after running this script. 
+	after running this script.
 	'''
 	wb = load_workbook(filename=doc)
 	ws=wb[sheets[2]]
@@ -141,17 +147,13 @@ def del_no_data_entries(entries_to_delete):
 		if company in entries_to_delete:
 			for col in range(2,ws.max_column + 1):
 				cell = ws.cell(column=col,row=row)
-				cell.value = None				
+				cell.value = None
 	wb.save(doc)
 	return "All companies with no data have been removed from spreadsheet"
-		
+
 def change_entry(entries_to_change):
 	''' (list) -> NoneType
-	Iterates through the rows of spreadsheet and sets
-	all cell values in the row to None if the value in column 2 (firm name)
-	matches any value in entries_to_delete.
-	Blank cells should be manually removed from the excel sheets
-	after running this script. 
+
 	'''
 	wb = load_workbook(filename=doc)
 	ws=wb[sheets[2]]
@@ -159,14 +161,117 @@ def change_entry(entries_to_change):
 		Cell = ws.cell(column=2,row=row)
 		if Cell.value:
 			company = unicode(Cell.value).strip()
+			pre_event_year = ws.cell(column=4,row=row)
+			event_year = ws.cell(column=3,row=row)
 			if company in entries_to_change:
-				event_year = ws.cell(column=3,row=row)
-				event_year.value = int(entries_to_change[company]) + 1 			
+				pre_event_year.value = int(entries_to_change[company])
+			else:
+				pre_event_year.value = event_year.value - 1
 	wb.save(doc)
-	return "Changed event years"	
+	return "Changed event years"
 
-	
-	
+
+def build_target_firm_data():
+	sic_col = column_index_from_string('BW') -1
+	event_col = column_index_from_string('C') - 1
+	pre_event_col = column_index_from_string('D') - 1
+	company_col = column_index_from_string('B') - 1
+	assets_col = column_index_from_string('Y') - 1
+	net_income_col = column_index_from_string('AF') - 1
+	date_col = column_index_from_string('N') - 1
+
+	ws = wb[sheets[2]]
+	result = {}
+	for row in ws.iter_rows(row_offset=1):
+		datecell = row[date_col].value
+		if datecell:
+			date = int(str(datecell)[:4])
+		if row[company_col].value:
+			company = unicode(row[company_col].value).strip()
+			sic_code = row[sic_col].value
+			eventyear = row[event_col].value
+			pre_eventyear = row[pre_event_col].value
+			result[company] = {"sic_code":sic_code,"eventyear":eventyear,"pre_eventyear":pre_eventyear}
+		if date == eventyear:
+			total_assets = row[assets_col].value
+			if total_assets:
+				result[company]["total_assets"] = total_assets
+			else:
+				result[company]["total_assets"] = 0
+		if date == pre_eventyear:
+			net_income = row[net_income_col].value
+			if net_income:
+				result[company]["net_income"] = net_income
+			else:
+				result[company]["net_income"] = 0
+	return result
+
+def build_industry_groups():
+	ws = wb2.active
+	target_firms = build_target_firm_data()
+	result = {}
+	company_col = column_index_from_string('I') - 1
+	sic_col = column_index_from_string('BK') - 1
+	date_col = column_index_from_string('B') - 1
+	assets_col = column_index_from_string('M') - 1
+	net_income_col = column_index_from_string('T') - 1
+	for row in ws.iter_rows(row_offset=1):
+		datecell = row[date_col].value
+		date = int(str(datecell)[:4])
+		sic_code = row[sic_col].value
+		firm = unicode(row[company_col].value).strip()
+
+		firm_total_assets = row[assets_col].value
+		net_income = row[net_income_col].value
+		if not firm_total_assets or not net_income:
+			continue
+		#TODO: need to fix name matching for edge cases
+		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and name.upper() not in firm and firm not in name.upper()])
+		for name in target_firm_names:
+			if date == target_firms[name]["eventyear"] and "total_assets" in target_firms[name] and 0.25 * target_firms[name]["total_assets"] <= firm_total_assets <= 2 * target_firms[name]["total_assets"]:
+				if name in result:
+					if not firm in result[name]:
+						result[name][firm] = 0
+				else:
+					result[name] = {}
+					result[name][firm] = 0
+			if date == target_firms[name]["pre_eventyear"]:
+				if name in result:
+					if not firm in result[name]:
+						result[name][firm] = net_income
+				else:
+					result[name] = {}
+					result[name][firm] = net_income
+
+
+	print "Target firms: {0}. Found matches for {1} target firms".format(len(target_firms),len(result))
+	return result
+
+
+def get_match():
+	ws = wb2.active
+	data = build_industry_groups()
+	target_firms = build_target_firm_data()
+
+	# company_col = column_index_from_string('I') - 1
+	# date_col = column_index_from_string('B') - 1
+	# net_income_col = column_index_from_string('T') - 1
+	result= {}
+	for target_firm in data:
+		income_diffs = {}
+		for match in data[target_firm]:
+			income_diffs[match] = (abs(target_firms[target_firm]["net_income"] - data[target_firm][match]))
+		lowest_diff = min(income_diffs.values())
+		for firm in income_diffs:
+			if income_diffs[firm] == lowest_diff:
+				result[target_firm] = firm
+	print len(result)
+	return result
+
+
+
+
+
 # def create_new_xl():
 	# nb = Workbook(write_only=True)
 	# ws = nb.create_sheet()
@@ -189,4 +294,7 @@ def change_entry(entries_to_change):
 # print check_pre_event_year()
 
 if __name__ == "__main__":
-	change_entry(check_pre_event_year())
+	# print build_target_firm_data()
+	# print build_industry_groups()
+	# print change_entry(check_pre_event_year())
+	print get_match()
