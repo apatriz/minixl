@@ -226,7 +226,7 @@ def build_industry_groups():
 		if not firm_total_assets or not net_income:
 			continue
 		#TODO: need to fix name matching for edge cases
-		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and name.upper() not in firm and firm not in name.upper()])
+		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and name.upper()[:-1] not in firm and firm[:-1] not in name.upper()])
 		for name in target_firm_names:
 			if date == target_firms[name]["eventyear"] and "total_assets" in target_firms[name] and 0.25 * target_firms[name]["total_assets"] <= firm_total_assets <= 2 * target_firms[name]["total_assets"]:
 				if name in result:
@@ -235,22 +235,35 @@ def build_industry_groups():
 				else:
 					result[name] = {}
 					result[name][firm] = 0
-			if date == target_firms[name]["pre_eventyear"]:
-				if name in result:
-					if not firm in result[name]:
-						result[name][firm] = net_income
-				else:
-					result[name] = {}
-					result[name][firm] = net_income
-
 
 	print "Target firms: {0}. Found matches for {1} target firms".format(len(target_firms),len(result))
 	return result
 
+def get_income_data():
+	ws = wb2.active
+	data = build_industry_groups()
+	target_firms = build_target_firm_data()
+	company_col = column_index_from_string('I') - 1
+	date_col = column_index_from_string('B') - 1
+	net_income_col = column_index_from_string('T') - 1
+	for row in ws.iter_rows(row_offset=1):
+		datecell = row[date_col].value
+		date = int(str(datecell)[:4])
+		firm = unicode(row[company_col].value).strip()
+
+		net_income = row[net_income_col].value
+		if not net_income:
+			continue
+		for target_firm in data:
+			if firm in data[target_firm] and date == target_firms[target_firm]["pre_eventyear"]:
+				data[target_firm][firm] = net_income
+	return data
+
+
 
 def get_match():
 	ws = wb2.active
-	data = build_industry_groups()
+	data = get_income_data()
 	target_firms = build_target_firm_data()
 
 	# company_col = column_index_from_string('I') - 1
