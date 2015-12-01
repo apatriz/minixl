@@ -4,6 +4,7 @@ from openpyxl.utils import column_index_from_string
 from datetime import datetime
 from os.path import basename
 import itertools
+import string
 
 old_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
 doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
@@ -16,6 +17,12 @@ wb2 = load_workbook(filename=industry_firms,use_iterators=True)
 wb3 = load_workbook(filename=old_doc,use_iterators=True)
 sheets_old = wb3.get_sheet_names()
 
+def replace_punc_with(text,replacer):
+	"""
+	Replaces all punctuation in a string with another defined string (replacer).
+	"""
+	exclude = set(string.punctuation)
+	return replacer.join(ch for ch in text if ch not in exclude)
 
 
 
@@ -220,13 +227,14 @@ def build_industry_groups():
 		date = int(str(datecell)[:4])
 		sic_code = row[sic_col].value
 		firm = unicode(row[company_col].value).strip()
+		firm_name = replace_punc_with(firm.upper(),"")
 
 		firm_total_assets = row[assets_col].value
 		net_income = row[net_income_col].value
 		if not firm_total_assets or not net_income:
 			continue
 		#TODO: need to fix name matching for edge cases
-		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and name.upper()[:-1] not in firm and firm[:-1] not in name.upper()])
+		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and replace_punc_with(name.upper(),"") not in firm_name and firm_name not in replace_punc_with(name.upper(),"")])
 		for name in target_firm_names:
 			if date == target_firms[name]["eventyear"] and "total_assets" in target_firms[name] and 0.25 * target_firms[name]["total_assets"] <= firm_total_assets <= 2 * target_firms[name]["total_assets"]:
 				if name in result:
@@ -273,7 +281,7 @@ def get_match():
 	for target_firm in data:
 		income_diffs = {}
 		for match in data[target_firm]:
-			income_diffs[match] = (abs(target_firms[target_firm]["net_income"] - data[target_firm][match]))
+			income_diffs[match] = abs(target_firms[target_firm]["net_income"] - data[target_firm][match])
 		lowest_diff = min(income_diffs.values())
 		for firm in income_diffs:
 			if income_diffs[firm] == lowest_diff:
