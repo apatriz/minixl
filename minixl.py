@@ -7,15 +7,17 @@ import itertools
 import string
 
 old_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
-doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
-industry_firms = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\2_BigData.xlsx"
+target_firm_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
+industry_firms_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\2_BigData.xlsx"
 #set the range string which contains the range of header data to be used in hash_year_values
 header_cell_range = 'D1:CU1'
-wb = load_workbook(filename=doc,use_iterators=True)
+wb = load_workbook(filename=target_firm_doc,use_iterators=True)
 sheets = wb.get_sheet_names()
-wb2 = load_workbook(filename=industry_firms,use_iterators=True)
+wb2 = load_workbook(filename=industry_firms_doc,use_iterators=True)
+
 wb3 = load_workbook(filename=old_doc,use_iterators=True)
 sheets_old = wb3.get_sheet_names()
+
 
 def replace_punc_with(text):
 	"""
@@ -27,7 +29,7 @@ def replace_punc_with(text):
 def word_similar(word1,word2):
 	"""
 	Evaluates the similarity of two words, based on the number and order of characters.
-	Returns a decimal between 0 and 1 , where 1 means word1 and word2 are identical.
+	Returns True if words are > 90% similar or share a common word not in the list of exlusion suffixes.
 	"""
 	word1 = replace_punc_with(word1.lower().strip())
 	word2 = replace_punc_with(word2.lower().strip())
@@ -85,7 +87,7 @@ def hash_event_years():
 
 
 def write_event_years():
-	wb = load_workbook(filename=doc)
+	wb = load_workbook(filename=target_firm_doc)
 	ws=wb[sheets[0]]
 	event_year_dict = hash_event_years()
 	companies = []
@@ -97,7 +99,7 @@ def write_event_years():
 			ws.cell(column=3,row=row).value = event_year_dict[company][0]
 			companies.append(company)
 			prevcompany = company
-	wb.save(doc)
+	wb.save(target_firm_doc)
 	print "New values written to spreadsheet"
 	return companies
 
@@ -144,7 +146,7 @@ def check_pre_event_year():
 	changed_event_year = {i:company_checked[i] for i in no_first_pre_event_year_data}
 	print "Firms that have pre-event year data, but no available net income data :\n" + str(no_net_income_data) + "\n\n" + "Firms with no available pre-event year data :\n"+ str(no_pre_event_year)+ "\n"
 	with open("log.txt","w") as logfile:
-		logfile.write("*" * 50 + "\n" + datetime.now().strftime('%H:%M %d/%m/%Y') + "\n\n" + "Log for analysis of: " + basename(doc) + "\n" + "*" * 50 + "\n\n" + str(len(no_net_income_data)) + " Firms that have pre-event year data, but no available net income data :\n\n")
+		logfile.write("*" * 50 + "\n" + datetime.now().strftime('%H:%M %d/%m/%Y') + "\n\n" + "Log for analysis of: " + basename(target_firm_doc) + "\n" + "*" * 50 + "\n\n" + str(len(no_net_income_data)) + " Firms that have pre-event year data, but no available net income data :\n\n")
 		for i in sorted(no_net_income_data):
 			logfile.write(i + "\n")
 		logfile.write("\n" + '*' * 50 + "\n" + str(len(no_pre_event_year)) + " Firms with no available pre-event year data :\n\n")
@@ -165,7 +167,7 @@ def del_no_data_entries(entries_to_delete):
 	Blank cells should be manually removed from the excel sheets
 	after running this script.
 	'''
-	wb = load_workbook(filename=doc)
+	wb = load_workbook(filename=target_firm_doc)
 	ws=wb[sheets[2]]
 	for row in range(2,ws.max_row):
 		Cell = ws.cell(column=2,row=row)
@@ -175,14 +177,14 @@ def del_no_data_entries(entries_to_delete):
 			for col in range(2,ws.max_column + 1):
 				cell = ws.cell(column=col,row=row)
 				cell.value = None
-	wb.save(doc)
+	wb.save(target_firm_doc)
 	return "All companies with no data have been removed from spreadsheet"
 
 def change_entry(entries_to_change):
 	''' (list) -> NoneType
 
 	'''
-	wb = load_workbook(filename=doc)
+	wb = load_workbook(filename=target_firm_doc)
 	ws=wb[sheets[2]]
 	for row in range(2,ws.max_row):
 		Cell = ws.cell(column=2,row=row)
@@ -194,7 +196,7 @@ def change_entry(entries_to_change):
 				pre_event_year.value = int(entries_to_change[company])
 			else:
 				pre_event_year.value = event_year.value - 1
-	wb.save(doc)
+	wb.save(target_firm_doc)
 	return "Changed event years"
 
 
@@ -202,7 +204,7 @@ def build_target_firm_data():
 	sic_col = column_index_from_string('BW') -1
 	event_col = column_index_from_string('C') - 1
 	pre_event_col = column_index_from_string('D') - 1
-	company_col = column_index_from_string('B') - 1
+	company_col = column_index_from_string('U') - 1
 	assets_col = column_index_from_string('Y') - 1
 	net_income_col = column_index_from_string('AF') - 1
 	date_col = column_index_from_string('N') - 1
@@ -210,15 +212,19 @@ def build_target_firm_data():
 	ws = wb[sheets[2]]
 	result = {}
 	for row in ws.iter_rows(row_offset=1):
-		datecell = row[date_col].value
-		if datecell:
-			date = int(str(datecell)[:4])
 		if row[company_col].value:
 			company = unicode(row[company_col].value).strip()
 			sic_code = row[sic_col].value
 			eventyear = row[event_col].value
 			pre_eventyear = row[pre_event_col].value
 			result[company] = {"sic_code":sic_code,"eventyear":eventyear,"pre_eventyear":pre_eventyear}
+			datecell = row[date_col].value
+		else:
+			continue 
+		if not datecell:
+			continue
+		else:
+			date = int(str(datecell)[:4])
 		if date == eventyear:
 			total_assets = row[assets_col].value
 			if total_assets:
@@ -323,7 +329,7 @@ def get_match():
 
 
 def create_new_xl():
-	output = 'C:\\Users\\Alec\\.projects\\minixl\\test_data\\matches.xlsx')
+	output = 'C:\\Users\\Alec\\.projects\\minixl\\test_data\\matches.xlsx'
 	nb = Workbook(write_only=True)
 	ws = nb.create_sheet()
 	entry_list = get_match()
