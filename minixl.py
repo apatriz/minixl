@@ -17,12 +17,32 @@ wb2 = load_workbook(filename=industry_firms,use_iterators=True)
 wb3 = load_workbook(filename=old_doc,use_iterators=True)
 sheets_old = wb3.get_sheet_names()
 
-def replace_punc_with(text,replacer):
+def replace_punc_with(text):
 	"""
-	Replaces all punctuation in a string with another defined string (replacer).
+	Removes all punctuation from a string.
 	"""
 	exclude = set(string.punctuation)
-	return replacer.join(ch for ch in text if ch not in exclude)
+	return ''.join(ch for ch in text if ch not in exclude)
+
+def word_similar(word1,word2):
+	"""
+	Evaluates the similarity of two words, based on the number and order of characters.
+	Returns a decimal between 0 and 1 , where 1 means word1 and word2 are identical.
+	"""
+	word1 = replace_punc_with(word1.lower().strip())
+	word2 = replace_punc_with(word2.lower().strip())
+	count = 0
+	for char in word1:
+		if char in word2 and word1.index(char) == word2.index(char):
+			count += 1
+		if 0.9 <= count / len(word1) <= 1:
+			return True
+	for word in word1.split():
+		if word in word2.split() and word not in ["inc","co","ltd","corp","cl","cp"]:
+			return True
+	return False
+
+
 
 
 
@@ -211,6 +231,7 @@ def build_target_firm_data():
 				result[company]["net_income"] = net_income
 			else:
 				result[company]["net_income"] = 0
+
 	return result
 
 def build_industry_groups():
@@ -227,14 +248,13 @@ def build_industry_groups():
 		date = int(str(datecell)[:4])
 		sic_code = row[sic_col].value
 		firm = unicode(row[company_col].value).strip()
-		firm_name = replace_punc_with(firm.upper(),"")
 
 		firm_total_assets = row[assets_col].value
 		net_income = row[net_income_col].value
 		if not firm_total_assets or not net_income:
 			continue
 		#TODO: need to fix name matching for edge cases
-		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and replace_punc_with(name.upper(),"") not in firm_name and firm_name not in replace_punc_with(name.upper(),"")])
+		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and not word_similar(name,firm)])
 		for name in target_firm_names:
 			if date == target_firms[name]["eventyear"] and "total_assets" in target_firms[name] and 0.25 * target_firms[name]["total_assets"] <= firm_total_assets <= 2 * target_firms[name]["total_assets"]:
 				if name in result:
@@ -243,8 +263,17 @@ def build_industry_groups():
 				else:
 					result[name] = {}
 					result[name][firm] = 0
-
+	no_total_assets = [i for i in target_firms if "total_assets" not in target_firms[i]]
+	no_industry_size_match = [i for i in target_firms if i not in result and i not in no_total_assets]
 	print "Target firms: {0}. Found matches for {1} target firms".format(len(target_firms),len(result))
+	with open("no_industry_match_log.txt","w") as log:
+		log.write("No event year data for these target firms (no total asset data):\n\n")
+		for firm in no_total_assets:
+			log.write(firm + "\n")
+		log.write("\n\nNo size matched group for these companies: \n\n")
+		for firm in no_industry_size_match:
+			log.write(firm + "\n")
+
 	return result
 
 def get_income_data():
@@ -293,20 +322,22 @@ def get_match():
 
 
 
-# def create_new_xl():
-	# nb = Workbook(write_only=True)
-	# ws = nb.create_sheet()
-	# entry_list = hash_event_years()
-	# for entry in entry_list:
-		# ws.append([entry,entry_list[entry],entry_list[entry]-1])
-	# nb.save('C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\event_years.xlsx')
-	# print "Saved new workbook with eventyears"
+def create_new_xl():
+	output = 'C:\\Users\\Alec\\.projects\\minixl\\test_data\\matches.xlsx')
+	nb = Workbook(write_only=True)
+	ws = nb.create_sheet()
+	entry_list = get_match()
+	ws.append(["Target Firm", "Matched Firm"])
+	for entry in entry_list:
+		ws.append([entry,entry_list[entry]])
+	nb.save(output)
+	print "Saved new workbook to: {0}".format(output)
 
 # companies_sheet1 = get_company_names()
 # companies_sheet2 = hash_event_years()
 # for i in companies_sheet1:
-	# if i not in companies_sheet2:
-		# print i
+# 	if i not in companies_sheet2:
+# 		print i
 # print len(get_company_names())
 # print hash_event_years()
 # print hash_year_values()
@@ -318,4 +349,5 @@ if __name__ == "__main__":
 	# print build_target_firm_data()
 	# print build_industry_groups()
 	# print change_entry(check_pre_event_year())
-	print get_match()
+	# print get_match()
+	create_new_xl()
