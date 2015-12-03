@@ -29,7 +29,7 @@ def replace_punc_with(text):
 def word_similar(word1,word2):
 	"""
 	Evaluates the similarity of two words, based on the number and order of characters.
-	Returns True if words are > 90% similar or share a common word not in the list of exlusion suffixes.
+	Returns True if words are > 80% similar or share a common word not in the list of exlusion suffixes.
 	"""
 	word1 = replace_punc_with(word1.lower().strip())
 	word2 = replace_punc_with(word2.lower().strip())
@@ -37,7 +37,7 @@ def word_similar(word1,word2):
 	for char in word1:
 		if char in word2 and word1.index(char) == word2.index(char):
 			count += 1
-		if 0.9 <= count / len(word1) <= 1:
+		if 0.8 <= count / len(word1) <= 1:
 			return True
 	for word in word1.split():
 		if word in word2.split() and word not in ["inc","co","ltd","corp","cl","cp"]:
@@ -205,6 +205,7 @@ def build_target_firm_data():
 	event_col = column_index_from_string('C') - 1
 	pre_event_col = column_index_from_string('D') - 1
 	company_col = column_index_from_string('U') - 1
+	name_col = column_index_from_string('B') - 1
 	assets_col = column_index_from_string('Y') - 1
 	net_income_col = column_index_from_string('AF') - 1
 	date_col = column_index_from_string('N') - 1
@@ -212,18 +213,14 @@ def build_target_firm_data():
 	ws = wb[sheets[2]]
 	result = {}
 	for row in ws.iter_rows(row_offset=1):
-		if row[company_col].value:
+		datecell = row[date_col].value
+		if row[name_col].value:
 			company = unicode(row[company_col].value).strip()
 			sic_code = row[sic_col].value
 			eventyear = row[event_col].value
 			pre_eventyear = row[pre_event_col].value
 			result[company] = {"sic_code":sic_code,"eventyear":eventyear,"pre_eventyear":pre_eventyear}
-			datecell = row[date_col].value
-		else:
-			continue 
-		if not datecell:
-			continue
-		else:
+		if datecell:
 			date = int(str(datecell)[:4])
 		if date == eventyear:
 			total_assets = row[assets_col].value
@@ -260,7 +257,7 @@ def build_industry_groups():
 		if not firm_total_assets or not net_income:
 			continue
 		#TODO: need to fix name matching for edge cases
-		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and not word_similar(name,firm)])
+		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and name != firm])
 		for name in target_firm_names:
 			if date == target_firms[name]["eventyear"] and "total_assets" in target_firms[name] and 0.25 * target_firms[name]["total_assets"] <= firm_total_assets <= 2 * target_firms[name]["total_assets"]:
 				if name in result:
