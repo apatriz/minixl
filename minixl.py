@@ -219,22 +219,26 @@ def build_target_firm_data():
 			sic_code = row[sic_col].value
 			eventyear = row[event_col].value
 			pre_eventyear = row[pre_event_col].value
-			result[company] = {"sic_code":sic_code,"eventyear":eventyear,"pre_eventyear":pre_eventyear}
+			result[company] = {"sic_code":sic_code,
+				"eventyear":eventyear,
+				"pre_eventyear":pre_eventyear,
+				"total_assets":0,
+				"net_income":0,
+				"net_income_event_year_plus":{}
+			}
 		if datecell:
 			date = int(str(datecell)[:4])
-		if date == eventyear:
+		if date >= eventyear:
 			total_assets = row[assets_col].value
+			net_income = row[net_income_col].value
 			if total_assets:
 				result[company]["total_assets"] = total_assets
-			else:
-				result[company]["total_assets"] = 0
+			if net_income:
+				result[company]["net_income_event_year_plus"][date] = net_income
 		if date == pre_eventyear:
 			net_income = row[net_income_col].value
 			if net_income:
 				result[company]["net_income"] = net_income
-			else:
-				result[company]["net_income"] = 0
-
 	return result
 
 def build_industry_groups():
