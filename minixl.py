@@ -6,20 +6,32 @@ from os.path import basename
 import itertools
 import string
 import os
+import csv
 
-old_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
-target_firm_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
+# old_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
+old_doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
+# target_firm_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
+target_firm_doc = "C:\\Users\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
 industry_firms_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\2_BigData.xlsx"
+output_path = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data"
 #set the range string which contains the range of header data to be used in hash_year_values
 header_cell_range = 'D1:CU1'
 wb = load_workbook(filename=target_firm_doc,use_iterators=True)
 sheets = wb.get_sheet_names()
-wb2 = load_workbook(filename=industry_firms_doc,use_iterators=True)
+target_firm_sheet = sheets[0]
+# wb2 = load_workbook(filename=industry_firms_doc,use_iterators=True)
 
 wb3 = load_workbook(filename=old_doc,use_iterators=True)
 sheets_old = wb3.get_sheet_names()
+rank_sheet = sheets_old[1]
 
-
+#decorator to convert indexes to 0-based
+def convertindex(func):
+	def minus_one(index_string):
+		return func(index_string) - 1
+	return minus_one
+get_index = convertindex(column_index_from_string)	
+	
 def replace_punc_with(text):
 	"""
 	Removes all punctuation from a string.
@@ -50,18 +62,18 @@ def word_similar(word1,word2):
 
 
 def get_company_names():
-	ws = wb[sheets[2]]
+	ws = wb[target_firm_sheet]
 	result = []
 	for row in ws.iter_rows(row_offset=1):
 		if row[1].value:
-			company = row[1].value.strip()
+			company = unicode(row[1].value).strip()
 			result.append(company)
 	return result
 
 
 
 def hash_year_values():
-	ws=wb3[sheets_old[1]]
+	ws=wb3[rank_sheet]
 	result = {}
 	for row in ws.iter_rows(range_string = header_cell_range):
 		for cell in row:
@@ -70,13 +82,13 @@ def hash_year_values():
 				result[cell.column] = value
 	return result
 
-def hash_event_years():
-	ws=wb3[sheets_old[1]]
+def hash_event_years(company_names,year_col_letter_dict):
+	ws=wb3[rank_sheet]
 	result={}
 	company_list = get_company_names()
 	year_dict = hash_year_values()
 	for row in ws.iter_rows(row_offset=1):
-		company_name = row[0].value.strip()
+		company_name = unicode(row[0].value).strip()
 		event_years =[]
 		if company_name in company_list:
 			for cell in row:
@@ -86,11 +98,11 @@ def hash_event_years():
 			result[company_name] = event_years
 	return result
 
-def get_ranks():
-	ws = wb3[sheets_old[1]]
+def get_ranks(event_year_dict,year_col_letter_dict):
+	ws = wb3[rank_sheet]
 	result = {}
-	event_years = hash_event_years()
-	year_column_dict = hash_year_values()
+	event_years = event_year_dict
+	year_column_dict = year_col_letter_dict
 	for row in ws.iter_rows(row_offset=1):
 		company_name = unicode(row[0].value).strip()
 		if company_name in event_years:
@@ -134,9 +146,9 @@ def check_pre_event_year():
 	Once it finds a match, the program checks that same row,column=Net Income(loss)
 	for a value. If there is no value, append the firm name to a dict (no_net_income_data) with firm name:pre-event year.
 	'''
-	ws=wb[sheets[2]]
+	ws=wb[target_firm_sheet]
 	event_years = hash_event_years()
-	net_income_col = column_index_from_string('AF')-1
+	net_income_col = get_index('AF')
 	print "Net income col:" + str(net_income_col)
 	no_net_income_data = []
 	no_first_pre_event_year_data = []
@@ -186,7 +198,7 @@ def del_no_data_entries(entries_to_delete):
 	after running this script.
 	'''
 	wb = load_workbook(filename=target_firm_doc)
-	ws=wb[sheets[2]]
+	ws=wb[target_firm_sheet]
 	for row in range(2,ws.max_row):
 		Cell = ws.cell(column=2,row=row)
 		if Cell.value:
@@ -203,7 +215,7 @@ def change_entry(entries_to_change):
 
 	'''
 	wb = load_workbook(filename=target_firm_doc)
-	ws=wb[sheets[2]]
+	ws=wb[target_firm_sheet]
 	for row in range(2,ws.max_row):
 		Cell = ws.cell(column=2,row=row)
 		if Cell.value:
@@ -219,17 +231,17 @@ def change_entry(entries_to_change):
 
 
 def build_target_firm_data(rank_data):
-	sic_col = column_index_from_string('BW') -1
-	event_col = column_index_from_string('C') - 1
-	pre_event_col = column_index_from_string('D') - 1
-	company_col = column_index_from_string('U') - 1
-	name_col = column_index_from_string('B') - 1
-	assets_col = column_index_from_string('Y') - 1
-	net_income_col = column_index_from_string('AF') - 1
-	date_col = column_index_from_string('N') - 1
+	sic_col = get_index('BW')
+	event_col = get_index('C')
+	pre_event_col = get_index('D')
+	company_col = get_index('U')
+	name_col = get_index('B')
+	assets_col = get_index('Y')
+	net_income_col = get_index('AF')
+	date_col = get_index('N')
 	ranks = rank_data
 
-	ws = wb[sheets[2]]
+	ws = wb[target_firm_sheet]
 	result = {}
 	for row in ws.iter_rows(row_offset=1):
 		datecell = row[date_col].value
@@ -263,11 +275,11 @@ def build_industry_groups(target_firm_data):
 	ws = wb2.active
 	target_firms = target_firm_data
 	result = {}
-	company_col = column_index_from_string('I') - 1
-	sic_col = column_index_from_string('BK') - 1
-	date_col = column_index_from_string('B') - 1
-	assets_col = column_index_from_string('M') - 1
-	net_income_col = column_index_from_string('T') - 1
+	company_col = get_index('I')
+	sic_col = get_index('BK')
+	date_col = get_index('B')
+	assets_col = get_index('M')
+	net_income_col = get_index('T')
 	for row in ws.iter_rows(row_offset=1):
 		datecell = row[date_col].value
 		date = int(str(datecell)[:4])
@@ -305,9 +317,9 @@ def get_income_data(industry_firm_data, target_firm_data):
 	ws = wb2.active
 	data = industry_firm_data
 	target_firms = target_firm_data
-	company_col = column_index_from_string('I') - 1
-	date_col = column_index_from_string('B') - 1
-	net_income_col = column_index_from_string('T') - 1
+	company_col = get_index('I')
+	date_col = get_index('B')
+	net_income_col = get_index('T') 
 	for row in ws.iter_rows(row_offset=1):
 		datecell = row[date_col].value
 		date = int(str(datecell)[:4])
@@ -328,9 +340,9 @@ def get_match(income_data,target_firm_data):
 	data = income_data
 	target_firms = target_firm_data
 
-	# company_col = column_index_from_string('I') - 1
-	# date_col = column_index_from_string('B') - 1
-	# net_income_col = column_index_from_string('T') - 1
+	# company_col = get_index('I')
+	# date_col = get_index('B')
+	# net_income_col = get_index('T')
 	for target_firm in data:
 		target_firms[target_firm]["matched_firm"] = ''
 		income_diffs = {}
@@ -347,15 +359,58 @@ def get_match(income_data,target_firm_data):
 
 
 def create_new_xl(output_path,entry_data):
-	output = os.path.abspath(output_path)
+	output = output_path
 	nb = Workbook(write_only=True)
 	ws = nb.create_sheet()
 	entry_list = entry_data
-
+	
 	for entry in entry_list:
-		ws.append([entry] + [(record,value) for (record,value) in entry_list[entry].iteritems()])
+		ws.append([entry] + [str((record,value)) for (record,value) in entry_list[entry].iteritems()])
 	nb.save(output)
 	print "Saved new workbook to: {0}".format(output)
+
+def write_to_csv(output_file_name,entry_data):
+	output_file = os.path.join(output_path,output_file_name)
+	firms = [entry for entry in entry_data]
+	sample = firms[0]
+	with open(output_file,'wb') as csvfile:
+		fieldnames = ["Target Firm"] + [field for field in entry_data[sample]]
+		writer = csv.DictWriter(csvfile,fieldnames = fieldnames,extrasaction='ignore')
+		writer.writeheader()
+		for firm in firms:
+			data = entry_data[firm]
+			data.update({"Target Firm":firm})
+			for record in data:
+				if type(data[record]) == dict:
+					data[record] = ', '.join("{!s}={!s}".format(*item) for item in data[record].iteritems())
+			writer.writerow(data)
+
+# doesnt work			
+# def write_to_csv(output_file_name,entry_data):
+	# output_file = os.path.join(output_path,output_file_name)
+	# firms = [entry for entry in entry_data]
+	# sample = firms[0]
+	# fields = ["Target Firm"] + [field for field in entry_data[sample]]
+	# with open(output_file,'wb') as csvfile:
+		# writer = csv.DictWriter(csvfile,fieldnames = fields,extrasaction='ignore')
+		# writer.writeheader()
+		# for firm in firms:
+			# data = entry_data[firm]
+			# data.update({"Target Firm":firm})
+			# for record in data:
+				# if type(data[record]) == dict:
+					# sub_fields = [field for field in data[record]]
+					# sub_fields.insert(0,record)
+					# print sub_fields
+					# writer.fieldnames = sub_fields
+					# writer.writeheader()
+					# writer.writerow(data[record])
+					# # data.pop(record)
+					# print fields
+					# fields = [field for field in fields if field != record]
+			# writer.fieldnames = fields
+			# writer.writerow(data)
+
 
 # companies_sheet1 = get_company_names()
 # companies_sheet2 = hash_event_years()
@@ -370,8 +425,13 @@ def create_new_xl(output_path,entry_data):
 # print check_pre_event_year()
 
 if __name__ == "__main__":
-	target_firms = build_target_firm_data(get_ranks())
+	company_names = get_company_names()
+	col_index_to_year_dict = hash_year_values()
+	target_firms = build_target_firm_data(get_ranks(hash_event_years(company_names,col_index_to_year_dict),col_index_to_year_dict))
 	industry_firms = build_industry_groups(target_firms)
 	income_data = get_income_data(industry_firms,target_firms)
 	complete_data = get_match(income_data,target_firms)
-	create_new_xl(r"C:\Users\Alec\.projects\minixl\test_data\complete_data.xlsx", complete_data)
+	# create_new_xl(output_file, complete_data)
+	write_to_csv("target_firm_matches",complete_data,["100_best_ranks","net_income_event_year_plus"])
+	write_to_csv("rank_data",complete_data,[])
+	write_to_csv("net_income_data",complete_data,[])
