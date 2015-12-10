@@ -5,6 +5,7 @@ from datetime import datetime
 from os.path import basename
 import itertools
 import string
+import os
 
 old_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
 target_firm_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
@@ -84,6 +85,23 @@ def hash_event_years():
 			event_years.sort()
 			result[company_name] = event_years
 	return result
+
+def get_ranks():
+	ws = wb3[sheets_old[1]]
+	result = {}
+	event_years = hash_event_years()
+	year_column_dict = hash_year_values()
+	for row in ws.iter_rows(row_offset=1):
+		company_name = unicode(row[0].value).strip()
+		if company_name in event_years:
+			result[company_name] = {}
+			for cell in row:
+				if cell.column in year_column_dict:
+					year = year_column_dict[cell.column]
+					if year in event_years[company_name]:
+						result[company_name][year] = cell.value
+	return result
+
 
 
 def write_event_years():
@@ -200,7 +218,7 @@ def change_entry(entries_to_change):
 	return "Changed event years"
 
 
-def build_target_firm_data():
+def build_target_firm_data(rank_data):
 	sic_col = column_index_from_string('BW') -1
 	event_col = column_index_from_string('C') - 1
 	pre_event_col = column_index_from_string('D') - 1
@@ -209,13 +227,17 @@ def build_target_firm_data():
 	assets_col = column_index_from_string('Y') - 1
 	net_income_col = column_index_from_string('AF') - 1
 	date_col = column_index_from_string('N') - 1
+	ranks = rank_data
 
 	ws = wb[sheets[2]]
 	result = {}
 	for row in ws.iter_rows(row_offset=1):
 		datecell = row[date_col].value
+		total_assets = row[assets_col].value
+		net_income = row[net_income_col].value
 		if row[name_col].value:
 			company = unicode(row[company_col].value).strip()
+			name = unicode(row[name_col].value).strip()
 			sic_code = row[sic_col].value
 			eventyear = row[event_col].value
 			pre_eventyear = row[pre_event_col].value
@@ -223,27 +245,23 @@ def build_target_firm_data():
 				"eventyear":eventyear,
 				"pre_eventyear":pre_eventyear,
 				"total_assets":0,
-				"net_income":0,
-				"net_income_event_year_plus":{}
+				"net_income_pre_event_year":0,
+				"net_income_event_year_plus":{},
+				"100_best_ranks":ranks[name]
 			}
 		if datecell:
 			date = int(str(datecell)[:4])
-		if date >= eventyear:
-			total_assets = row[assets_col].value
-			net_income = row[net_income_col].value
-			if total_assets:
-				result[company]["total_assets"] = total_assets
-			if net_income:
-				result[company]["net_income_event_year_plus"][date] = net_income
-		if date == pre_eventyear:
-			net_income = row[net_income_col].value
-			if net_income:
-				result[company]["net_income"] = net_income
+		if date == eventyear and total_assets:
+			result[company]["total_assets"] = total_assets
+		if date >= eventyear and net_income:
+			result[company]["net_income_event_year_plus"][date] = net_income
+		if date == pre_eventyear and net_income:
+			result[company]["net_income_pre_event_year"] = net_income
 	return result
 
-def build_industry_groups():
+def build_industry_groups(target_firm_data):
 	ws = wb2.active
-	target_firms = build_target_firm_data()
+	target_firms = target_firm_data
 	result = {}
 	company_col = column_index_from_string('I') - 1
 	sic_col = column_index_from_string('BK') - 1
@@ -283,10 +301,10 @@ def build_industry_groups():
 
 	return result
 
-def get_income_data():
+def get_income_data(industry_firm_data, target_firm_data):
 	ws = wb2.active
-	data = build_industry_groups()
-	target_firms = build_target_firm_data()
+	data = industry_firm_data
+	target_firms = target_firm_data
 	company_col = column_index_from_string('I') - 1
 	date_col = column_index_from_string('B') - 1
 	net_income_col = column_index_from_string('T') - 1
@@ -305,38 +323,37 @@ def get_income_data():
 
 
 
-def get_match():
+def get_match(income_data,target_firm_data):
 	ws = wb2.active
-	data = get_income_data()
-	target_firms = build_target_firm_data()
+	data = income_data
+	target_firms = target_firm_data
 
 	# company_col = column_index_from_string('I') - 1
 	# date_col = column_index_from_string('B') - 1
 	# net_income_col = column_index_from_string('T') - 1
-	result= {}
 	for target_firm in data:
+		target_firms[target_firm]["matched_firm"] = ''
 		income_diffs = {}
 		for match in data[target_firm]:
-			income_diffs[match] = abs(target_firms[target_firm]["net_income"] - data[target_firm][match])
+			income_diffs[match] = abs(target_firms[target_firm]["net_income_pre_event_year"] - data[target_firm][match])
 		lowest_diff = min(income_diffs.values())
 		for firm in income_diffs:
 			if income_diffs[firm] == lowest_diff:
-				result[target_firm] = firm
-	print len(result)
-	return result
+				target_firms[target_firm]["matched_firm"] = firm
+	return target_firms
 
 
 
 
 
-def create_new_xl():
-	output = 'C:\\Users\\Alec\\.projects\\minixl\\test_data\\matches.xlsx'
+def create_new_xl(output_path,entry_data):
+	output = os.path.abspath(output_path)
 	nb = Workbook(write_only=True)
 	ws = nb.create_sheet()
-	entry_list = get_match()
-	ws.append(["Target Firm", "Matched Firm"])
+	entry_list = entry_data
+
 	for entry in entry_list:
-		ws.append([entry,entry_list[entry]])
+		ws.append([entry] + [(record,value) for (record,value) in entry_list[entry].iteritems()])
 	nb.save(output)
 	print "Saved new workbook to: {0}".format(output)
 
@@ -353,8 +370,8 @@ def create_new_xl():
 # print check_pre_event_year()
 
 if __name__ == "__main__":
-	# print build_target_firm_data()
-	# print build_industry_groups()
-	# print change_entry(check_pre_event_year())
-	# print get_match()
-	create_new_xl()
+	target_firms = build_target_firm_data(get_ranks())
+	industry_firms = build_industry_groups(target_firms)
+	income_data = get_income_data(industry_firms,target_firms)
+	complete_data = get_match(income_data,target_firms)
+	create_new_xl(r"C:\Users\Alec\.projects\minixl\test_data\complete_data.xlsx", complete_data)
