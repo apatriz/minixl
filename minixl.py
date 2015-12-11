@@ -358,16 +358,50 @@ def get_match(income_data,target_firm_data):
 
 
 
-def create_new_xl(output_path,entry_data):
-	output = output_path
+def create_match_output(output_file_name,entry_data,omitted_records = []):
+	output = os.path.join(output_path,output_file_name)
 	nb = Workbook(write_only=True)
 	ws = nb.create_sheet()
-	entry_list = entry_data
-	
-	for entry in entry_list:
-		ws.append([entry] + [str((record,value)) for (record,value) in entry_list[entry].iteritems()])
+	firms = [entry for entry in entry_data]
+	sample = firms[0]
+	headers = ["Target Firm"] + [record for record in entry_data[sample] if record not in omitted_records]
+	ws.append(headers)
+	for entry in entry_data:
+		ws.append([entry] + [entry_data[entry][record] for record in entry_data[entry] if record in headers])
 	nb.save(output)
 	print "Saved new workbook to: {0}".format(output)
+	
+
+def create_year_output(output_file_name,entry_data,record, year_start=1998,year_end=2014):
+	output = os.path.join(output_path,output_file_name)
+	col_end = year_end - year_start + 1
+	wb = Workbook()
+	ws=wb.active
+	firms = [entry for entry in entry_data]
+	map = {i:j for i,j in zip(string.uppercase[1:col_end],range(year_start,year_end))}
+	ws.cell(row=1,column=1).value = "Target Firm"
+	for row in range(2,len(firms) + 2):
+		firm = firms[row-2]
+		ws.cell(row=row,column=1).value = firm
+		for col in range(2,len(map) + 2): 
+			cell = ws.cell(row=row,column=col)
+			year = map[cell.column]
+			ws.cell(row=1,column=col).value = year 
+			if year in entry_data[firm][record]:
+				cell.value = entry_data[firm][record][year]
+	wb.save(output)
+			
+			
+		
+		# Cell = ws.cell(column=2,row=row)
+		# company = unicode(Cell.value).strip()
+		# if company and company != prevcompany and company in event_year_dict:
+			# ws.cell(column=3,row=row).value = event_year_dict[company][0]
+			# companies.append(company)
+			# prevcompany = company
+	# wb.save(target_firm_doc)	
+	
+
 
 def write_to_csv(output_file_name,entry_data):
 	output_file = os.path.join(output_path,output_file_name)
@@ -428,10 +462,10 @@ if __name__ == "__main__":
 	company_names = get_company_names()
 	col_index_to_year_dict = hash_year_values()
 	target_firms = build_target_firm_data(get_ranks(hash_event_years(company_names,col_index_to_year_dict),col_index_to_year_dict))
-	industry_firms = build_industry_groups(target_firms)
-	income_data = get_income_data(industry_firms,target_firms)
-	complete_data = get_match(income_data,target_firms)
-	# create_new_xl(output_file, complete_data)
-	write_to_csv("target_firm_matches",complete_data,["100_best_ranks","net_income_event_year_plus"])
-	write_to_csv("rank_data",complete_data,[])
-	write_to_csv("net_income_data",complete_data,[])
+	# industry_firms = build_industry_groups(target_firms)
+	# income_data = get_income_data(industry_firms,target_firms)
+	# complete_data = get_match(income_data,target_firms)
+	# create_new_xl("complete_data.xlsx", target_firms,["100_best_ranks","net_income_event_year_plus"])
+	create_match_output("matches.xlsx",target_firms,omitted_records = ["100_best_ranks","net_income_event_year_plus"])
+	create_year_output("One_hundred_best_ranks.xlsx",target_firms,"100_best_ranks")
+	create_year_output("net_income.xlsx",target_firms,"net_income_event_year_plus")
