@@ -358,13 +358,13 @@ def get_match(income_data,target_firm_data):
 
 
 
-def create_match_output(output_file_name,entry_data,omitted_records = []):
+def create_match_output(output_file_name,entry_data):
 	output = os.path.join(output_path,output_file_name)
 	nb = Workbook(write_only=True)
 	ws = nb.create_sheet()
 	firms = [entry for entry in entry_data]
 	sample = firms[0]
-	headers = ["Target Firm"] + [record for record in entry_data[sample] if record not in omitted_records]
+	headers = ["Target Firm"] + [record for record in entry_data[sample] if not hasattr(entry_data[sample][record],'__iter__')]
 	ws.append(headers)
 	for entry in entry_data:
 		ws.append([entry] + [entry_data[entry][record] for record in entry_data[entry] if record in headers])
@@ -466,6 +466,6 @@ if __name__ == "__main__":
 	# income_data = get_income_data(industry_firms,target_firms)
 	# complete_data = get_match(income_data,target_firms)
 	# create_new_xl("complete_data.xlsx", target_firms,["100_best_ranks","net_income_event_year_plus"])
-	create_match_output("matches.xlsx",target_firms,omitted_records = ["100_best_ranks","net_income_event_year_plus"])
+	create_match_output("matches.xlsx",target_firms)
 	create_year_output("One_hundred_best_ranks.xlsx",target_firms,"100_best_ranks")
 	create_year_output("net_income.xlsx",target_firms,"net_income_event_year_plus")
