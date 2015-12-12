@@ -10,4 +10,4 @@ Add following data to key value pairs in `build_target_firm_data`:
 
 * ~~net income in event year, and all following years~~
 
-* '100 Best' rank in each year of appearance
+* ~~'100 Best' rank in each year of appearance~~

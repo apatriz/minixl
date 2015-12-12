@@ -1,3 +1,5 @@
+#!/usr/bin/env
+
 from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.utils import column_index_from_string
@@ -8,18 +10,18 @@ import string
 import os
 import csv
 
-# old_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\t.xlsx"
-old_doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
-# target_firm_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\3_Target_firm.xlsx"
-target_firm_doc = "C:\\Users\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
-industry_firms_doc = "C:\\Users\\Alec\\.projects\\minixl\\test_data\\2_BigData.xlsx"
-output_path = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data"
+old_doc = "/home/apatriz/Projects/minixl/test_data/t.xlsx"
+# old_doc = "C:\\Users\\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
+target_firm_doc = "/home/apatriz/Projects/minixl/test_data/3_Target_firm.xlsx"
+# target_firm_doc = "C:\\Users\patrizio\\Documents\\GitHub\\minixl\\test_data\\t.xlsx"
+industry_firms_doc = "/home/apatriz/Projects/minixl/test_data/2_BigData.xlsx"
+output_path = "/home/apatriz/Projects/minixl/test_data/"
 #set the range string which contains the range of header data to be used in hash_year_values
 header_cell_range = 'D1:CU1'
 wb = load_workbook(filename=target_firm_doc,use_iterators=True)
 sheets = wb.get_sheet_names()
-target_firm_sheet = sheets[0]
-# wb2 = load_workbook(filename=industry_firms_doc,use_iterators=True)
+target_firm_sheet = sheets[2]
+wb2 = load_workbook(filename=industry_firms_doc,use_iterators=True)
 
 wb3 = load_workbook(filename=old_doc,use_iterators=True)
 sheets_old = wb3.get_sheet_names()
@@ -256,10 +258,11 @@ def build_target_firm_data(rank_data):
 			result[company] = {"sic_code":sic_code,
 				"eventyear":eventyear,
 				"pre_eventyear":pre_eventyear,
-				"total_assets":0,
+				"total_assets":None,
 				"net_income_pre_event_year":0,
 				"net_income_event_year_plus":{},
-				"100_best_ranks":ranks[name]
+				"100_best_ranks":ranks[name],
+				"matched_firm":''
 			}
 		if datecell:
 			date = int(str(datecell)[:4])
@@ -293,14 +296,14 @@ def build_industry_groups(target_firm_data):
 		#TODO: need to fix name matching for edge cases
 		target_firm_names = set([name for name in target_firms if target_firms[name]["sic_code"] == sic_code and name != firm])
 		for name in target_firm_names:
-			if date == target_firms[name]["eventyear"] and "total_assets" in target_firms[name] and 0.25 * target_firms[name]["total_assets"] <= firm_total_assets <= 2 * target_firms[name]["total_assets"]:
+			if date == target_firms[name]["eventyear"] and target_firms[name]["total_assets"] != None and 0.25 * target_firms[name]["total_assets"] <= firm_total_assets <= 2 * target_firms[name]["total_assets"]:
 				if name in result:
 					if not firm in result[name]:
 						result[name][firm] = 0
 				else:
 					result[name] = {}
 					result[name][firm] = 0
-	no_total_assets = [i for i in target_firms if "total_assets" not in target_firms[i]]
+	no_total_assets = [i for i in target_firms if target_firms[i]["total_assets"] == None]
 	no_industry_size_match = [i for i in target_firms if i not in result and i not in no_total_assets]
 	print "Target firms: {0}. Found matches for {1} target firms".format(len(target_firms),len(result))
 	with open("no_industry_match_log.txt","w") as log:
@@ -344,7 +347,7 @@ def get_match(income_data,target_firm_data):
 	# date_col = get_index('B')
 	# net_income_col = get_index('T')
 	for target_firm in data:
-		target_firms[target_firm]["matched_firm"] = ''
+		# target_firms[target_firm]["matched_firm"] = ''
 		income_diffs = {}
 		for match in data[target_firm]:
 			income_diffs[match] = abs(target_firms[target_firm]["net_income_pre_event_year"] - data[target_firm][match])
@@ -363,11 +366,12 @@ def create_match_output(output_file_name,entry_data):
 	nb = Workbook(write_only=True)
 	ws = nb.create_sheet()
 	firms = [entry for entry in entry_data]
+	firms.sort()
 	sample = firms[0]
 	headers = ["Target Firm"] + [record for record in entry_data[sample] if not hasattr(entry_data[sample][record],'__iter__')]
 	ws.append(headers)
-	for entry in entry_data:
-		ws.append([entry] + [entry_data[entry][record] for record in entry_data[entry] if record in headers])
+	for firm in firms:
+		ws.append([firm] + [entry_data[firm][record] for record in entry_data[firm] if record in headers])
 	nb.save(output)
 	print "Saved new workbook to: {0}".format(output)
 	
@@ -378,6 +382,7 @@ def create_year_output(output_file_name,entry_data,record, year_start=1998,year_
 	wb = Workbook()
 	ws=wb.active
 	firms = [entry for entry in entry_data]
+	firms.sort()
 	map = {i:j for i,j in zip(string.uppercase[1:col_end],range(year_start,year_end))}
 	ws.cell(row=1,column=1).value = "Target Firm"
 	for row in range(2,len(firms) + 2):
@@ -392,32 +397,23 @@ def create_year_output(output_file_name,entry_data,record, year_start=1998,year_
 	wb.save(output)
 			
 			
-		
-		# Cell = ws.cell(column=2,row=row)
-		# company = unicode(Cell.value).strip()
-		# if company and company != prevcompany and company in event_year_dict:
-			# ws.cell(column=3,row=row).value = event_year_dict[company][0]
-			# companies.append(company)
-			# prevcompany = company
-	# wb.save(target_firm_doc)	
-	
 
 
-def write_to_csv(output_file_name,entry_data):
-	output_file = os.path.join(output_path,output_file_name)
-	firms = [entry for entry in entry_data]
-	sample = firms[0]
-	with open(output_file,'wb') as csvfile:
-		fieldnames = ["Target Firm"] + [field for field in entry_data[sample]]
-		writer = csv.DictWriter(csvfile,fieldnames = fieldnames,extrasaction='ignore')
-		writer.writeheader()
-		for firm in firms:
-			data = entry_data[firm]
-			data.update({"Target Firm":firm})
-			for record in data:
-				if type(data[record]) == dict:
-					data[record] = ', '.join("{!s}={!s}".format(*item) for item in data[record].iteritems())
-			writer.writerow(data)
+# def write_to_csv(output_file_name,entry_data):
+# 	output_file = os.path.join(output_path,output_file_name)
+# 	firms = [entry for entry in entry_data]
+# 	sample = firms[0]
+# 	with open(output_file,'wb') as csvfile:
+# 		fieldnames = ["Target Firm"] + [field for field in entry_data[sample]]
+# 		writer = csv.DictWriter(csvfile,fieldnames = fieldnames,extrasaction='ignore')
+# 		writer.writeheader()
+# 		for firm in firms:
+# 			data = entry_data[firm]
+# 			data.update({"Target Firm":firm})
+# 			for record in data:
+# 				if type(data[record]) == dict:
+# 					data[record] = ', '.join("{!s}={!s}".format(*item) for item in data[record].iteritems())
+# 			writer.writerow(data)
 
 # doesnt work			
 # def write_to_csv(output_file_name,entry_data):
@@ -462,10 +458,10 @@ if __name__ == "__main__":
 	company_names = get_company_names()
 	col_index_to_year_dict = hash_year_values()
 	target_firms = build_target_firm_data(get_ranks(hash_event_years(company_names,col_index_to_year_dict),col_index_to_year_dict))
-	# industry_firms = build_industry_groups(target_firms)
-	# income_data = get_income_data(industry_firms,target_firms)
-	# complete_data = get_match(income_data,target_firms)
-	# create_new_xl("complete_data.xlsx", target_firms,["100_best_ranks","net_income_event_year_plus"])
-	create_match_output("matches.xlsx",target_firms)
-	create_year_output("One_hundred_best_ranks.xlsx",target_firms,"100_best_ranks")
-	create_year_output("net_income.xlsx",target_firms,"net_income_event_year_plus")
+	industry_firms = build_industry_groups(target_firms)
+	income_data = get_income_data(industry_firms,target_firms)
+	complete_data = get_match(income_data,target_firms)
+	# create_new_xl("complete_data.xlsx", complete_data,["100_best_ranks","net_income_event_year_plus"])
+	create_match_output("matches.xlsx",complete_data)
+	create_year_output("One_hundred_best_ranks.xlsx",complete_data,"100_best_ranks")
+	create_year_output("net_income.xlsx",complete_data,"net_income_event_year_plus")
